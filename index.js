@@ -2,6 +2,7 @@
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 const githubHelper = require('github_helper');
+const fs = require('fs');
 
 exports.handler = async (event) => {
 
@@ -10,8 +11,11 @@ exports.handler = async (event) => {
     return invalidResponse;
   }
 
-  // Do custom stuff here with github event data
-  // For more on events see https://developer.github.com/v3/activity/events/types/
+  // hard code our repo URL instead of trusting incoming request
+  let path = '/tmp/azeemba.tar';
+  await githubHelper.getRepoArchive(process.env.GITHUB_REPO, path);
+
+  console.log("Exists: ", fs.existsSync(path));
 
   const response = {
     statusCode: 200,

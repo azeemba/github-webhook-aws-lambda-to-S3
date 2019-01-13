@@ -2,6 +2,9 @@
 // adapted from 
 // https://github.com/serverless/examples/blob/master/aws-node-github-webhook-listener/handler.js
 const crypto = require('crypto');
+const request = require('request-promise')
+const fs = require('fs')
+const {promisify} = require('util');
 
 function signRequestBody(key, body) {
   return `sha1=${crypto.createHmac('sha1', key).update(body, 'utf-8').digest('hex')}`;
@@ -70,3 +73,24 @@ exports.validateHookEvent = function(event) {
 
   return;
 };
+
+exports.getRepoArchive = async function(repo, path) {
+  const getUrl = `https://api.github.com/repos/${repo}/tarball/master`;
+  const options = {
+    url: getUrl,
+    auth: {
+      username: process.env.GITHUB_USER,
+      password: process.env.GITHUB_TOKEN
+    },
+    headers: {
+      'User-Agent': process.env.USER_AGENT
+    },
+    resolveWithFullResponse: true
+  };
+  let response = await request(options);
+  console.log(response.statusCode)
+  console.log(response.headers)
+  file = fs.createWriteStream(path)
+  promisifiedWrite = promisify(file.write).bind(file)
+  return promisifiedWrite(response.body)
+}

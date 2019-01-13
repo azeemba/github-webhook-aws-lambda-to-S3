@@ -1,5 +1,5 @@
 
 rm code.zip
-zip -r code.zip . -x *.zip
+zip -r code.zip . -x *.zip .git
 FUNCTION_NAME=azeembaSyncToS3 
-aws --profile lambda lambda update-function-code --function-name $FUNCTION_NAME --zip-file fileb://code.zip
+aws --profile lambda lambda update-function-code --publish --function-name $FUNCTION_NAME --zip-file fileb://code.zip

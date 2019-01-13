@@ -1,0 +1,16 @@
+{
+  "name": "personal-website-webhook-lambda-deploy",
+  "version": "1.0.0",
+  "description": "Deploy azeemba.com using AWS Lambda via a github hook",
+  "main": "index.js",
+  "dependencies": {
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT"
+}
