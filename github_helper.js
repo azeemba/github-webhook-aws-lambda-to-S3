@@ -2,9 +2,13 @@
 // adapted from 
 // https://github.com/serverless/examples/blob/master/aws-node-github-webhook-listener/handler.js
 const crypto = require('crypto');
-const request = require('request-promise')
-const fs = require('fs')
+const request = require('request-promise');
+const fs = require('fs');
+const path = require('path');
 const {promisify} = require('util');
+const { exec } = require('child_process');
+
+const execP = promisify(exec);
 
 function signRequestBody(key, body) {
   return `sha1=${crypto.createHmac('sha1', key).update(body, 'utf-8').digest('hex')}`;
@@ -85,12 +89,30 @@ exports.getRepoArchive = async function(repo, path) {
     headers: {
       'User-Agent': process.env.USER_AGENT
     },
-    resolveWithFullResponse: true
+    resolveWithFullResponse: true,
+    encoding: null
   };
   let response = await request(options);
   console.log(response.statusCode)
   console.log(response.headers)
   file = fs.createWriteStream(path)
   promisifiedWrite = promisify(file.write).bind(file)
-  return promisifiedWrite(response.body)
+  return promisifiedWrite(response.body).then(() => response.headers.etag);
+}
+
+exports.extractRepoArchive = async function(tarfile, destinationDir) {
+
+  const cmd = `tar -xvf ${tarfile}`;
+  await execP(cmd, {cwd: destinationDir});
+  let {stdout, stderr} = await execP(`tar --list -f ${tarfile}`);
+
+  if (stderr) {
+    console.log(stderr);
+  }
+
+  let files = stdout.split('\n');
+  absoluteFiles = files.map(
+    (relfile) => path.join(destinationDir, relfile.trim())
+  );
+  return absoluteFiles;
 }
