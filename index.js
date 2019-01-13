@@ -11,7 +11,6 @@ const rmdirP = promisify(fs.rmdir);
 const statP = promisify(fs.stat);
 
 async function getAndExtractRepo(repo, targetDir) {
-  // hard code our repo URL instead of trusting incoming request
   let path = '/tmp/azeemba.tar';
   let hash = await githubHelper.getRepoArchive(repo, path);
 
@@ -28,7 +27,7 @@ exports.handler = async (event) => {
 
   let targetDir = '/tmp/'
   let repoFilesPromise = getAndExtractRepo(process.env.GITHUB_REPO, targetDir);
-  let s3FilesPromise = awsHelper.listBucketObjects(process.env['AWS_S3_BUCKET']);
+  let s3FilesPromise = awsHelper.listBucketObjects(process.env.AWS_S3_BUCKET);
 
   // we triggered the promises in parallel and now we wait till
   // both are done
@@ -37,23 +36,35 @@ exports.handler = async (event) => {
     await s3FilesPromise
   ];
 
-  let publicDirectoryRegex = new RegExp(`${targetDir}[^/]*/public/`);
   let repoPublicPrefix = path.join(repoFilenames[0], 'public');
   console.log(repoPublicPrefix);
   let repoPublicFiles = repoFilenames
-  .filter(filename => publicDirectoryRegex.test(filename))
+  .filter(filename => filename.startsWith(repoPublicPrefix))
   .filter(filename => !filename.endsWith('/'))
   .map(
-    filename => filename.replace(publicDirectoryRegex, '')
+    filename => filename.replace(repoPublicPrefix + '/', '')
   );
 
   let s3Files = s3FilesData.map(obj => obj.key);
 
+  let inBoth = lodash.intersection(repoPublicFiles, s3Files);
+  let missingInS3 = lodash.difference(repoPublicFiles, s3Files);
+  let extraInS3 = lodash.difference(s3Files, repoPublicFiles);
+
+  let uploadToS3Objs = s3FilesData.filter(
+    obj => inBoth.includes(obj.key) || missingInS3.includes(obj.key)
+  );
+  let uploadResponses = await awsHelper.uploadToS3(
+    process.env.AWS_S3_BUCKET, repoPublicPrefix, uploadToS3Objs);
+
+  let deleteResponses = await awsHelper.deleteFromS3(
+    process.env.AWS_S3_BUCKET, extraInS3);
+
   const response = {
     statusCode: 200,
     body: JSON.stringify({
-      missingInS3: lodash.difference(repoPublicFiles, s3Files),
-      extrainS3: lodash.difference(s3Files, repoPublicFiles)
+      uploadResponses,
+      deleteResponses
     })
   };
 
