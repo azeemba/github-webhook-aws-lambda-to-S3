@@ -49,6 +49,9 @@ that is permissioned with full lambda permissions on AWS.
 If you are managing multiple AWS credentials, you can use the [named profiles](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html) features. Otherwise you can skip the `--profile <name>` argument from the
 command.
 
+Note: You will have to `npm install` once locally since those dependencies
+need to be packaged and deployed to Lambda as well.
+
 ## Caveats
 
 - Each build reuploads everything to S3, even if the objects are 
