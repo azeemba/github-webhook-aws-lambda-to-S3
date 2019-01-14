@@ -1,8 +1,10 @@
 
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
+const cloudfront = new AWS.CloudFront();
 const fs = require('fs');
 const path = require('path');
+const mime = require('mime-types');
 
 const {promisify} = require('util');
 const readFileP = promisify(fs.readFile);
@@ -32,6 +34,9 @@ exports.listBucketObjects = async function(bucket) {
 }
 
 exports.uploadToS3 = async function(bucket, localPathPrefix, s3objs) {
+    if (s3objs.length == 0) {
+        return;
+    }
     let upload = async function(s3obj) {
         console.log("Uploading", s3obj.key);
         return readFileP(path.join(localPathPrefix, s3obj.key))
@@ -39,7 +44,9 @@ exports.uploadToS3 = async function(bucket, localPathPrefix, s3objs) {
             return s3.putObject({
                 Bucket: bucket,
                 Key: s3obj.key,
-                Body: filedata
+                Body: filedata,
+                ContentType: mime.lookup(s3obj.key) || 'application/octet-stream',
+                ACL: 'public-read'
             }).promise();
         });
     }
@@ -50,11 +57,31 @@ exports.uploadToS3 = async function(bucket, localPathPrefix, s3objs) {
 };
 
 exports.deleteFromS3 = async function(bucket, keys) {
+    if (keys.length == 0) {
+        return;
+    }
+    let deleteKeys = keys.map(key => ({Key: key}));
+    console.log("Deleting: ", deleteKeys);
     let params = {
         Bucket: bucket,
         Delete: {
-            Objects: keys.map(key => ({Key: key}))
+            Objects: deleteKeys
         }
     }
     return s3.deleteObjects(params).promise();
+};
+
+exports.resetCloudfrontCache = async function(distributionId, keys) {
+    var params = {
+        DistributionId: distributionId,
+        InvalidationBatch: {
+            CallerReference: Date.now().toString(),
+            Paths: {
+                Quantity: 1,
+                Items: [ '/*' ]
+            }
+        }
+    };
+    console.log("Resetting cloudfront cache", params);
+    return cloudfront.createInvalidation(params).promise()
 };

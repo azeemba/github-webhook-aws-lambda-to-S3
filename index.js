@@ -60,11 +60,20 @@ exports.handler = async (event) => {
   let deleteResponses = await awsHelper.deleteFromS3(
     process.env.AWS_S3_BUCKET, extraInS3);
 
+  let distributionId = process.env.AWS_CLOUDFRONT_DISTRIBUTION;
+  let cloudFrontResponse;
+  if (distributionId) {
+    cloudFrontResponse = await awsHelper.resetCloudfrontCache(
+      distributionId,
+      inBoth.concat(missingInS3).concat(extraInS3));
+  }
+
   const response = {
     statusCode: 200,
     body: JSON.stringify({
       uploadResponses,
-      deleteResponses
+      deleteResponses,
+      cloudFrontResponse
     })
   };
 
