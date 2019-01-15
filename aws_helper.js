@@ -33,25 +33,22 @@ exports.listBucketObjects = async function(bucket) {
     return results;
 }
 
-exports.uploadToS3 = async function(bucket, localPathPrefix, s3objs) {
-    if (s3objs.length == 0) {
-        return;
-    }
-    let upload = async function(s3obj) {
-        console.log("Uploading", s3obj.key);
-        return readFileP(path.join(localPathPrefix, s3obj.key))
+exports.uploadToS3 = async function(bucket, localPathPrefix, keys) {
+    let upload = async function(key) {
+        console.log("Uploading ", key);
+        return readFileP(path.join(localPathPrefix, key))
         .then(filedata => {
             return s3.putObject({
                 Bucket: bucket,
-                Key: s3obj.key,
+                Key: key,
                 Body: filedata,
-                ContentType: mime.lookup(s3obj.key) || 'application/octet-stream',
+                ContentType: mime.lookup(key) || 'application/octet-stream',
                 ACL: 'public-read'
             }).promise();
         });
     }
-    let promises = s3objs.map(s3obj => {
-        return upload(s3obj);
+    let promises = keys.map(key => {
+        return upload(key);
     });
     return Promise.all(promises);
 };
@@ -71,7 +68,7 @@ exports.deleteFromS3 = async function(bucket, keys) {
     return s3.deleteObjects(params).promise();
 };
 
-exports.resetCloudfrontCache = async function(distributionId, keys) {
+exports.resetCloudfrontCache = async function(distributionId) {
     var params = {
         DistributionId: distributionId,
         InvalidationBatch: {

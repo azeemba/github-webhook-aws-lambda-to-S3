@@ -54,9 +54,7 @@ need to be packaged and deployed to Lambda as well.
 
 ## Caveats
 
-- Each build reuploads everything to S3, even if the objects are 
-  already uploaded.
-- Each build deletes things from S3 that are no longer in the `public` folder
-  of the repo.
+- Each build looks at the commits in the webhook and only uploads files that
+are modified or added and deletes files that were removed in those commits.
 - GitHub webhooks timeout after 10 seconds so its possible that GitHub
   will report a timeout but the build will still continue and succeed.
