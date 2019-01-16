@@ -10,14 +10,8 @@ const {promisify} = require('util');
 const rmdirP = promisify(fs.rmdir);
 const statP = promisify(fs.stat);
 
-async function getAndExtractRepo(repo, targetDir) {
-  let path = '/tmp/azeemba.tar';
-  let hash = await githubHelper.getRepoArchive(repo, path);
-
-  let filesList = await githubHelper.extractRepoArchive(path, targetDir);
-
-  return filesList;
-}
+process.env.PATH = process.env.PATH + ':' + path.resolve('.', 'bin');
+process.env.GIT_EXEC_PATH = path.resolve('.', 'bin', 'libexec', 'git-core');
 
 function getTypeFromCommits(commits, type) {
   return (
@@ -29,10 +23,9 @@ function getTypeFromCommits(commits, type) {
       f => f.replace("public/", "")
     )
   );
-
 }
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   let invalidResponse = githubHelper.validateHookEvent(event);
   if (invalidResponse) {
     return invalidResponse;
@@ -43,18 +36,13 @@ exports.handler = async (event) => {
   let modifiedFiles = getTypeFromCommits(commits, "modified");
   let deletedFiles = getTypeFromCommits(commits, "removed");
 
-  let targetDir = '/tmp/'
-  let repoFilenames = await getAndExtractRepo(process.env.GITHUB_REPO, targetDir);
-//  let s3FilesPromise = awsHelper.listBucketObjects(process.env.AWS_S3_BUCKET);
+  let targetDir = `/tmp/${context.awsRequestId}`;
+  let user = process.env.GITHUB_USER;
+  let token = process.env.GITHUB_TOKEN;
+  let repo = process.env.GITHUB_REPO;
+  await githubHelper.getRepo(repo, user, token, targetDir);
 
-  // we triggered the promises in parallel and now we wait till
-  // both are done
-  // let [repoFilenames, s3FilesData] = [
-  //   await repoFilesPromise,
-  //   await s3FilesPromise
-  // ];
-
-  let repoPublicPrefix = path.join(repoFilenames[0], 'public');
+  let repoPublicPrefix = path.join(targetDir, 'public');
 
   let uploadToS3Keys= addedFiles.concat(modifiedFiles);
   let uploadResponses = await awsHelper.uploadToS3(
@@ -68,7 +56,6 @@ exports.handler = async (event) => {
   if (distributionId) {
     cloudFrontResponse = await awsHelper.resetCloudfrontCache(
       distributionId);
-      
   }
 
   const response = {

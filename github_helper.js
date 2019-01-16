@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const request = require('request-promise');
 const fs = require('fs');
 const path = require('path');
+const git = require('simple-git/promise')();
 const {promisify} = require('util');
 const { exec } = require('child_process');
 
@@ -78,41 +79,7 @@ exports.validateHookEvent = function(event) {
   return;
 };
 
-exports.getRepoArchive = async function(repo, path) {
-  const getUrl = `https://api.github.com/repos/${repo}/tarball/master`;
-  const options = {
-    url: getUrl,
-    auth: {
-      username: process.env.GITHUB_USER,
-      password: process.env.GITHUB_TOKEN
-    },
-    headers: {
-      'User-Agent': process.env.USER_AGENT
-    },
-    resolveWithFullResponse: true,
-    encoding: null
-  };
-  let response = await request(options);
-  console.log(response.statusCode)
-  console.log(response.headers)
-  file = fs.createWriteStream(path)
-  promisifiedWrite = promisify(file.write).bind(file)
-  return promisifiedWrite(response.body).then(() => response.headers.etag);
-}
-
-exports.extractRepoArchive = async function(tarfile, destinationDir) {
-
-  const cmd = `tar -xvf ${tarfile}`;
-  await execP(cmd, {cwd: destinationDir});
-  let {stdout, stderr} = await execP(`tar --list -f ${tarfile}`);
-
-  if (stderr) {
-    console.log(stderr);
-  }
-
-  let files = stdout.split('\n');
-  absoluteFiles = files.map(
-    (relfile) => path.join(destinationDir, relfile.trim())
-  );
-  return absoluteFiles;
+exports.getRepo = async function(repo, user, token, path) {
+  const repoUrl = `https://${user}:${token}@github.com/${repo}.git`;
+  return await git.clone(repoUrl, path, ['--depth', '1']);
 }
