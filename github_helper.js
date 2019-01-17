@@ -83,3 +83,20 @@ exports.getRepo = async function(repo, user, token, path) {
   const repoUrl = `https://${user}:${token}@github.com/${repo}.git`;
   return await git.clone(repoUrl, path, ['--depth', '1']);
 }
+
+exports.isClean = async function(dir) {
+  let status = await git.cwd(dir)
+    .then(_ => git.status());
+  return status.isClean();
+}
+
+exports.commitAndPushPublic = async function(dir) {
+  await git.cwd(dir)
+    .then(_ => git.addConfig('user.email', 'bot@azeemba.com'))
+    .then(_ => git.addConfig('user.name', 'Bot'));
+
+  return git.cwd(dir)
+    .then(_ => git.add('public/'))
+    .then(_ => git.commit('Regen website'))
+    .then(_ => git.push('origin', 'master'));
+}

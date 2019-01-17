@@ -20,6 +20,10 @@ project has an
 that may work to automatically configure API and Lambda for you. Once those
 are set up, you can copy the rest of the code from here and deploy that.
 
+Additionally, the Amazon Linux image used in lambda currently
+doesn't have Git. So this [layer](https://github.com/lambci/git-lambda-layer)
+should be added to the lambda function to have Git available.
+
 Here are all the environment variables that need to be defined in the 
 AWS Lambda configuration.
 
@@ -30,6 +34,9 @@ AWS Lambda configuration.
 - GITHUB_WEBHOOK_SECRET: https://developer.github.com/webhooks/securing/
 - USER_AGENT: Can be anything, something identifying you our your repo is preferred
 - AWS_CLOUDFRONT_DISTRIBUTION: Optional, distribution ID
+- REGEN_PUBLIC_CMD: This should be defined only if this command should be
+    run as part of the hook. If this command changes the repo, they will
+    be committed back to the repo.
 
 I bumped up the timeout to be one minute from the default of 3 seconds. On
 average my runs are taking about 9 seconds. I kept all other settings

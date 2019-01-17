@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const lodash = require('lodash');
+const { exec } = require('child_process');
 
 const githubHelper = require('github_helper');
 const awsHelper = require('aws_helper');
@@ -9,9 +10,9 @@ const awsHelper = require('aws_helper');
 const {promisify} = require('util');
 const rmdirP = promisify(fs.rmdir);
 const statP = promisify(fs.stat);
+const execP = promisify(exec);
 
 process.env.PATH = process.env.PATH + ':' + path.resolve('.', 'bin');
-process.env.GIT_EXEC_PATH = path.resolve('.', 'bin', 'libexec', 'git-core');
 
 function getTypeFromCommits(commits, type) {
   return (
@@ -45,25 +46,34 @@ exports.handler = async (event, context) => {
   let repoPublicPrefix = path.join(targetDir, 'public');
 
   let uploadToS3Keys= addedFiles.concat(modifiedFiles);
-  let uploadResponses = await awsHelper.uploadToS3(
+  let uploadResponses = awsHelper.uploadToS3(
     process.env.AWS_S3_BUCKET, repoPublicPrefix, uploadToS3Keys);
 
-  let deleteResponses = await awsHelper.deleteFromS3(
+  let deleteResponses = awsHelper.deleteFromS3(
     process.env.AWS_S3_BUCKET, deletedFiles);
 
   let distributionId = process.env.AWS_CLOUDFRONT_DISTRIBUTION;
   let cloudFrontResponse;
   if (distributionId) {
-    cloudFrontResponse = await awsHelper.resetCloudfrontCache(
+    cloudFrontResponse = awsHelper.resetCloudfrontCache(
       distributionId);
+  }
+
+  if (process.env.REGEN_PUBLIC_CMD) {
+    let cmd = process.env.REGEN_PUBLIC_CMD;
+    let output = await execP(cmd, {cwd: targetDir});
+    console.log(cmd, output);
+    if (!(await githubHelper.isClean(targetDir))) {
+      await githubHelper.commitAndPushPublic(targetDir);
+    }
   }
 
   const response = {
     statusCode: 200,
     body: JSON.stringify({
-      uploadResponses,
-      deleteResponses,
-      cloudFrontResponse
+      upload: await uploadResponses,
+      delete: await deleteResponses,
+      cloudFront: await cloudFrontResponse
     })
   };
 
